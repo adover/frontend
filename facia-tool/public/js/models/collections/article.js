@@ -64,6 +64,7 @@ define([
         validateImageSrc = validateImageSrc.default;
         copiedArticle = copiedArticle.default;
         logger = logger.default;
+        Group = Group.default;
 
         var capiProps = [
                 'webUrl',
@@ -345,6 +346,7 @@ define([
 
             opts = opts || {};
 
+            this.dropTarget = true;
             this.id = ko.observable(opts.id);
 
             this.group = opts.group;
@@ -672,7 +674,7 @@ define([
             ].filter(function(prop) {return !deepGet(opts, prop); });
 
             if (missingProps.length) {
-                vars.model.alert('ContentApi is returning invalid data. Fronts may not update.');
+                mediator.emit('capi:error', 'ContentApi is returning invalid data. Fronts may not update.');
                 logger.error('ContentApi missing: "' + missingProps.join('", "') + '" for ' + this.id());
             } else {
                 this.state.isLoaded(true);
@@ -710,6 +712,13 @@ define([
             return {
                 id:   this.id(),
                 meta: this.getMeta()
+            };
+        };
+
+        Article.prototype.normalizeDropTarget = function() {
+            return {
+                isAfter: false,
+                target: this
             };
         };
 
@@ -907,21 +916,8 @@ define([
             return false;
         };
 
-        Article.prototype.drop = function (source, targetGroup, alternateAction) {
-            if (alternateAction) {
-                // the drop target for replacing the article ID is the inner group
-                return;
-            }
-            mediator.emit('collection:updates', {
-                sourceItem: source.sourceItem,
-                sourceGroup: source.sourceGroup,
-                targetItem: this,
-                targetGroup: targetGroup,
-                isAfter: false,
-                mediaItem: source.mediaItem,
-                sourceContext: source.sourceItem.front,
-                targetContext: this.front
-            });
+        Article.prototype.omitItem = function () {
+            this.group.omitItem(this);
         };
 
         Article.prototype.validateImage = function (params) {
@@ -1031,35 +1027,6 @@ define([
                         mediator.emit('ui:open', formFields[nextIndex].meta, self, self.front);
                     }
                 });
-            }
-        };
-
-        ko.bindingHandlers.dropImage = {
-            init: function(el, valueAccessor, allBindings, viewModel, bindingContext) {
-                var isDropEnabled = ko.unwrap(valueAccessor());
-
-                if (isDropEnabled) {
-                    el.addEventListener('drop', function (evt) {
-                        evt.preventDefault();
-                        evt.stopPropagation();
-                        bindingContext.$data.dropInEditor(evt.dataTransfer);
-                        bindingContext.$data.underDrag(false);
-                        resize(el);
-                    });
-                    el.addEventListener('dragover', function (evt) {
-                        evt.preventDefault();
-                        evt.stopPropagation();
-                        bindingContext.$data.underDrag(true);
-                    });
-                    el.addEventListener('dragleave', function (evt) {
-                        evt.preventDefault();
-                        evt.stopPropagation();
-                        bindingContext.$data.underDrag(false);
-                    });
-                    el.addEventListener('dragstart', function (evt) {
-                        evt.dataTransfer.setData('sourceMeta', JSON.stringify(bindingContext.$data.meta()));
-                    });
-                }
             }
         };
 
